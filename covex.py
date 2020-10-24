@@ -318,18 +318,18 @@ def filter_data():
 
 def rename_columns(df: pd.DataFrame) -> pd.DataFrame:
     """
-    renames column names and labelsto make them more userfriendly where they appear on the plot 
+    Renames column names and labels to make them more userfriendly where they appear on the plot 
     """
 
     if len(cantons) == 1 and len(variables) >= 1:
         marker_col = 'Fälle'
-        df['variable'].replace(variable_dic, inplace=True)
+        df['variable'].replace(cn.variable_dic, inplace=True)
         df.rename(columns = {'variable':marker_col}, inplace=True)
     elif len(cantons) > 1 and len(variables) == 1:
         marker_col = 'Kanton'
     elif len(cantons) > 1 and len(variables) > 1:
         marker_col = 'Fälle'
-        df['variable'].replace(variable_dic, inplace=True)
+        df['variable'].replace(cn.variable_dic, inplace=True)
         df['variable'] = df['variable']+ ' (' + data['Kanton'] + ')'
         df.rename(columns = {'variable':marker_col}, inplace=True)
 
@@ -389,13 +389,13 @@ def show_group_plot():
         if len(variables) > 0:
             group_list = variables
         else:
-            group_list = variable_dic.keys()
+            group_list =cn.variable_dic.keys()
     
     ax_title = 'Fälle'
     for group in group_list:
         if group_plot == 'var':
-            plot_title = variable_dic[group]
-            value_col = variable_dic[group]
+            plot_title = cn.variable_dic[group]
+            value_col = cn.variable_dic[group]
         else:
             plot_title = group
             value_col = group
@@ -417,7 +417,7 @@ def show_result():
         max_date = data.max(axis = 0)['date']
         st.markdown('## Covid-19 Data Explorer')
         st.markdown(f'Letzter Abgleich mit Datenquellen: {last_refresh_date}')
-        text=open(r"info.md", encoding="utf-8").read()
+        text = open(r"info.md", encoding="utf-8").read()
         st.markdown(text.format(min_date.strftime('%d/%m/%Y'),max_date.strftime('%d/%m/%Y')), unsafe_allow_html=True)
         
         text = """Diese Applikation wurde von [Lukas Calmbach](mailto:lcalmbach@gmail.com) \
