@@ -4,6 +4,7 @@ Diese Applikation illustriert die zeitliche Entwicklung von COVID-19 in der Schw
 *Sterbefälle BS*: [OpenDataBS](https://data.bs.ch/explore/dataset/100079/information/)<br>
 *Kantonseinwohner*: [daenuprobst/covid19-cases-switzerland](https://github.com/daenuprobst/covid19-cases-switzerland/)<br><br>
 **Weitere Covid-Visualisierungen und Informationen zu den Themen Covid-19 und Grippe:**<br>
+* [Opendata.bs covid-19 dashboard](https://data.bs.ch/pages/covid-19-dashboard/)
 * [Medienmitteilungen Basel](https://www.coronavirus.bs.ch/aktuelles.html)
 * [COVID-19 Information for Switzerland](https://www.corona-data.ch/)
 * [Wikipedia: 2020 coronavirus pandemic in Switzerland](https://en.wikipedia.org/wiki/2020_coronavirus_pandemic_in_Switzerland)

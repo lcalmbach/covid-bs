@@ -158,7 +158,6 @@ def get_incidence_comment()-> str:
     return _text
 
 
-
 @st.cache(ttl = 3600)
 def read_sterbefaelle_bs() -> pd.DataFrame:
 
@@ -166,14 +165,14 @@ def read_sterbefaelle_bs() -> pd.DataFrame:
         result = row[total_col] - row[covid_col] if row[total_col] > row[covid_col] else 0
         return result
 
-    filename = './sterbefaelle.csv'
+    filename = './100079.csv'
     # if file older than 12 hours then read it again, otherwise use local copy
     if tools.file_age(filepath=filename, time_unit='h') > cn.MAX_FILE_AGE_HOURS:
         url = cn.VALUES_BS_URL
         myfile = requests.get(url)
         open(filename, 'wb').write(myfile.content)
 
-    df_values_bs = pd.read_csv(filename, sep = ';')
+    df_all_deaths = pd.read_csv(filename, sep = ';')
     jahr = 'Jahr'
     total = 'Anzahl Gestorbene total'
     kw = 'Kalenderwoche'
@@ -430,7 +429,7 @@ def show_result():
         st.markdown(f'### Aktuelle COVID-19 Fallzahlen in Basel-Stadt ({_most_recent_date.strftime("%d.%m.%Y")})')
         st.markdown(get_values_bs_comment(_df, _most_recent_date),unsafe_allow_html = True)
         st.dataframe(_df)
-        st.markdown(get_incidence_comment(),unsafe_allow_html = True)
+        st.markdown(get_incidence_comment(),unsafe_allow_html=True)
         
 
     def show_metadata():
@@ -502,10 +501,9 @@ def show_result():
         plot_title = 'Anteil Covid-Fälle an Anzahl der Verstorbenen in BS'
         chart = get_bar_chart(df_sterbefaelle, plot_title, ax_title, marker_col, value_col, group_col)
         st.altair_chart(chart)
-        text = """Der Vergleich kann nur bis zum Datum heute - 15 Tagen durchgeführt werden, da die Zahl der Vestorbenen 
-        in der Regel mit einigen Tagen Verspätung eintreffen und in den vergangenen 2 Wochen ein signifikater Anteil 
-        der Nicht-Covid-Sterbefälle noch nicht gemeldet wurde. Covid-Sterbefälle werden hingegen tagesgenau 
-        rapportiert."""
+        text = """Der Vergleich kann nur bis zum Datum heute - 15 Tagen durchgeführt werden, da die Zahl der Verstorbenen 
+        in der Regel mit einigen Tagen Verspätung eintreffen und in den vergangenen 2 Wochen ein Teil 
+        der Nicht-Covid-Sterbefälle noch nicht gemeldet wurde. Covid-Sterbefälle werden hingegen tagesgenau rapportiert."""
         st.markdown(text)
         plot_title = 'Total Gestorbene in Basel-Stadt pro Woche'
         value_col = 'Anzahl Gestorbene total'
@@ -515,7 +513,7 @@ def show_result():
         data_filtered = df_sterbefaelle_week[(df_sterbefaelle_week[time_col].dt.year >= from_year) & (df_sterbefaelle_week[time_col].dt.year <= to_year)]
         show_time_series_sterbefaelle(data_filtered, plot_title, ax_title, value_col, time_col)
         text = """Im März 2020 - mit den meisten Covid-Todesfällen in Basel-Stadt - zeichnet sich zwar deutlich eine Spitze ab, ähnlich hohe wöchentliche 
-        Sterberaten traten aber auch im Feb 2017, Januar 2009 und März 2004, sowie recht häufig vor dem Jahr 2004 auf. Die Wohnbevölkerung von Basel-Stadt lag
+        Sterberaten traten aber auch im Feb. 2017, Januar 2009 und März 2004, sowie recht häufig vor dem Jahr 2004 auf. Die Wohnbevölkerung von Basel-Stadt lag
         im 1990 bei 199,411 Einwohner und war somit tiefer als Ende 2019, sodass die tendenziell höhere Sterberate vor 2004 nicht mit einer 
         höheren Einwohnerzahl erklärt werden kann.<br>Die rote Linie glättet die wöchentlichen Daten in einem Zeitfenster von 30 Tagen (moving average) und erlaubt es,
         Trends besser zu erkennen."""
