@@ -93,7 +93,7 @@ def read_values_bs() -> pd.DataFrame:
 
     _df = pd.read_csv(cn.VALUES_BS_URL, sep = ';').sort_values(by='Zeitstempel',ascending=False)
     _df = _df[['Datum','Zeit','Differenz Fälle mit Wohnsitz BS', 'Differenz Fälle mit Wohnsitz ausserhalb BS', 'Isolierte', 'Kontaktpersonen in Quarantäne'
-        ,'Reiserückkehrer in Quarantäne','In Quarantäne total', 'Fälle mit Wohnsitz BS','Fälle mit Wohnsitz ausserhalb BS',	'Neu Hospitalisierte','Fälle auf Intensivstation',
+        ,'Reiserückkehrer in Quarantäne','In Quarantäne total', 'Fälle mit Wohnsitz BS','Fälle mit Wohnsitz ausserhalb BS','Fälle auf Intensivstation',
         'Genesene', 'Differenz Genesene', 'Verstorbene', 'Differenz Verstorbene']]
     # _df['Datum'] = pd.to_datetime(_df['Datum'])
     _df.rename(columns = {'Differenz Fälle mit Wohnsitz BS':'Fälle mit Wohnsitz BS',
