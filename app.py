@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import covex
 
-__version__ = '1.0.1'
+__version__ = '1.1.0'
 __author__ = 'Lukas Calmbach'
 
 covex.data, covex.bs_data, covex.last_refresh_date = covex.read_files()

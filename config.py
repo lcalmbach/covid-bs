@@ -1,18 +1,19 @@
 import pandas as pd
 from datetime import date, datetime, timedelta
 
+WEEK_DIC = {0: 'Montag', 1: 'Dienstag', 2: 'Mittwoch', 3: 'Donnerstag', 4: 'Freitag', 5: 'Samstag', 6: 'Sonntag'}
 MONTH_DIC = {1: 'Jan', 2: 'Feb', 3: 'Mrz', 4: 'Apr', 5: 'Mai', 6: 'Jun', 7: 'Jul', 
     8: 'Aug', 9: 'Sep', 10: 'Okt', 11: 'Nov', 12: 'Dez'}
 COLOR_SCHEMA = "set1"
-CHART_DIC = {'inf': 'Info',
-            'fields': 'Erklärung der Felder',
-            'situation': 'Aktuelle Zahlen',
+CHART_DIC = {'inf': 'Info',            
+            'situation': 'Aktuelle Zahlen in Basel-Stadt',
             'ts': 'Zeitreihe',
             'bc': 'Balkendiagramm',
              # improve or scrap
              # 'ani': 'Balkendiagramm (animiert)',
             'dist_bs': 'Sterbefälle nach Alter und Geschlecht (BS)',
-            'comp_sf': 'Anteil Covid-Sterbefälle an den Gestorbenen (BS)'
+            'comp_sf': 'Anteil Covid-Sterbefälle an den Gestorbenen (BS)',
+            'fields': 'Erklärung der Felder',
             } 
 CHART_GROUP_DIC = {'none': 'keine', 
                     'canton': 'Kanton',

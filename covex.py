@@ -21,7 +21,7 @@ def read_files() -> pd.DataFrame:
     numbers_df = pd.read_csv(cn.COVID_FAELLE_CH_URL)
     # read BS data
     bs_df = pd.read_csv(cn.FALLZAHLEN_BS_URL)
-    bs_df = prepare_bs_data(bs_df)
+    bs_df = prepare_bs_covid_death_data(bs_df)
     # read population table and merge with cases
     filename = cn.BEVOELKERUNG_CH_URL
     einw_df = pd.read_csv(filename)
@@ -57,13 +57,45 @@ def read_files() -> pd.DataFrame:
     
     return df_melted, bs_df, datetime.now().strftime('%x %H:%M')
 
-@st.cache(ttl = 3600)
+
+def get_bs_population():
+    return 194766
+    st.write(data)
+
+@st.cache(ttl = 3600, suppress_st_warning=True)
 def read_values_bs() -> pd.DataFrame:
+    """
+    Reads the bs dataset for covid cases, which includes more information than the swiss dataset. 
+    The function also calculates the incidence for bs residents
+    """
+
+    def calculate_incidence(df, days, column_name)->pd.DataFrame:
+        """
+        Calculates for each day the sum of 7 and 14 previous days cases and stores the result in column
+        {column_name}. Divided by population/100'000 this will result in the {days} incidence value
+        
+        Returns:
+        updated dataframe
+        most recent date for reported cases
+        """
+        
+        
+        _df = df[['Datum', 'Fälle mit Wohnsitz BS']]
+        _df['datum_start_interval'] = _df['Datum'] + timedelta(days=-(days-1))
+        df.set_index('Datum', inplace=True)
+        for index, row in _df.iterrows():
+            _today = row['Datum']
+            _df_filt = df[( df.index <= _today ) & ( df.index >= row['datum_start_interval'] )]
+            _df_s = _df_filt.sum()
+            df.at[_today, column_name] = _df_s['Fälle mit Wohnsitz BS']
+        df.reset_index(inplace=True)
+        return df
+
     _df = pd.read_csv(cn.VALUES_BS_URL, sep = ';').sort_values(by='Zeitstempel',ascending=False)
     _df = _df[['Datum','Zeit','Differenz Fälle mit Wohnsitz BS', 'Differenz Fälle mit Wohnsitz ausserhalb BS', 'Isolierte', 'Kontaktpersonen in Quarantäne'
-        ,'Reiserückkehrer in Quarantäne','In Quarantäne total', 'Fälle mit Wohnsitz BS','Fälle mit Wohnsitz ausserhalb BS',	'Neu Hospitalisierte','Fälle auf Intensivstation','Intubierte',
-        'Genesene', 'Differenz Genesene', 'Verstorbene', 'Differenz Verstorbene','Woche']]
-    _df['Datum'] = pd.to_datetime(_df['Datum'])
+        ,'Reiserückkehrer in Quarantäne','In Quarantäne total', 'Fälle mit Wohnsitz BS','Fälle mit Wohnsitz ausserhalb BS',	'Neu Hospitalisierte','Fälle auf Intensivstation',
+        'Genesene', 'Differenz Genesene', 'Verstorbene', 'Differenz Verstorbene']]
+    # _df['Datum'] = pd.to_datetime(_df['Datum'])
     _df.rename(columns = {'Differenz Fälle mit Wohnsitz BS':'Fälle mit Wohnsitz BS',
         'Differenz Fälle mit Wohnsitz ausserhalb BS': 'Fälle mit Wohnsitz ausserhalb BS',
         'Fälle mit Wohnsitz BS': 'Fälle mit Wohnsitz BS kumuliert',
@@ -73,13 +105,58 @@ def read_values_bs() -> pd.DataFrame:
         'Genesene': 'Genesene kumuliert',
         'Differenz Genesene': 'Genesene',
         }, inplace = True) 
-    # last 7 days
-    _df = _df.head(7)
-    
-    _df['Datum'] = _df['Datum'].dt.strftime('%d-%m-%Y')    
+    # last 14 days
+    _df = _df.head(21)
+
+    _df['Datum'] = _df['Datum'].astype('datetime64[ns]')
+    _df['Fälle letzte 7 Tage'] = 0
+    _df['Fälle letzte 14 Tage'] = 0
+    _df = calculate_incidence(_df, 7, 'Fälle letzte 7 Tage')
+    _df = calculate_incidence(_df, 14, 'Fälle letzte 14 Tage')
+    _most_recent_date = _df.max()['Datum']
+    _pop = get_bs_population()
     _df = _df.set_index('Datum')
-    _df = _df.transpose()
-    return _df
+    _df['7 Tage Inzidenz'] =  (_df['Fälle letzte 7 Tage'] / _pop * 100000).round(1)
+    _df['14 Tage Inzidenz'] = (_df['Fälle letzte 14 Tage'] / _pop * 100000).round(1)
+    _df = _df.head(7)
+    return _df.transpose(), _most_recent_date
+
+@st.cache(ttl = 3600)
+def get_values_bs_comment(df:pd.DataFrame, reporting_date)-> str:
+    sentence = {}
+    _weekday = cn.WEEK_DIC[reporting_date.weekday()]
+
+    _new = int(df.at['Fälle mit Wohnsitz BS', reporting_date])
+    _cumul =  int(df.at['Fälle mit Wohnsitz BS kumuliert', reporting_date])
+    _cured = int(df.at['Genesene kumuliert', reporting_date])
+    _inc7 = df.at['7 Tage Inzidenz', reporting_date]
+    _inc14 = df.at['14 Tage Inzidenz', reporting_date]
+    _sum7 = int(df.at['Fälle letzte 7 Tage', reporting_date])
+    _sum14 = int(df.at['Fälle letzte 14 Tage', reporting_date])
+    _dead = int(df.at['Verstorbene', reporting_date])
+    _dead_cumul = int(df.at['Verstorbene kumuliert', reporting_date])
+
+    sentence['rising_falling'] = f'Die Zahl der COVID-19 Todesfälle stieg um {_dead} auf insgesamt {_dead_cumul}' if _dead > 0 else f'Die Zahl der COVID-19 Todesfälle blieb konstant bei insgesamt {_dead_cumul}'
+
+    _text = f"""
+    Am {_weekday} gab es in Basel-Stadt weitere {_new} bestätigte Infektionen mit dem Coronavirus. Damit {'erhöhte sich'} die Zahl der Infizierten 
+    im Kanton auf {_cumul}. Ungefähr {_cured} Personen sind seit Beginn der Epidemie wieder genesen. Insgesamt infizierten sich in den vergangenen 7 Tagen {_sum7} Personen, in den vergangenen 14 Tagen waren es {_sum14}. 
+    Die 7-Tage Inzidenz beträgt zur Zeit {_inc7}. 
+    {sentence['rising_falling']}.<br><br>Einige wichtige publizierte Zahlen der letzten sieben Tage sind in untenstehender Tabelle zusammengefasst.  
+    """
+    return _text
+
+def get_incidence_comment()-> str:
+    _pop = get_bs_population()
+    _pop = f"{_pop:,}"
+    _text = f"""
+    <sub>n-Tage Inzidenz = Anzahl Fälle pro 100'000 Einwohner über die letzten n Tage. Je nach Quelle, Stichtag und Definition der Einwohnerzahl 
+    kann dieser Wert also leicht schwanken. Die Einwohnerzahl des Kantons ist in der Regel z.B. etwas höher als diejenige des BFS, da sie auch die Wochenaufenthalter beinhaltet. Daraus ergibt sich dann eine geringfügig tiefere Inzidenz.
+    Die Inzidenzen in CovEx wird mit einer Einwohnerzahl von {_pop} gerechnet, gemäss [Demografische Bilanz Nach Kanton](https://www.bfs.admin.ch/bfs/de/home/statistiken/bevoelkerung.assetdetail.14087712.html) des 
+    BFS. Dieser Datenbestand wird in CovEx-bs für alle pro Kopf Quoten verwendet.</sub>
+    """
+    return _text
+
 
 
 @st.cache(ttl = 3600)
@@ -137,9 +214,9 @@ def read_sterbefaelle_bs() -> pd.DataFrame:
 
 
 @st.cache(ttl = 3600)
-def prepare_bs_data(df: pd.DataFrame) -> pd.DataFrame:
+def prepare_bs_covid_death_data(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Returns the data frame with covid case data for basel with added columns including categories used for plotting
+    Returns the data frame with covid case data for basel with added columns sec and age used for plotting
     """
 
     default_sex = 'F'
@@ -168,10 +245,11 @@ def prepare_bs_data(df: pd.DataFrame) -> pd.DataFrame:
     df.loc[(df['age_group'] == '>= 65') & (df['Gender'] != 'M'), cols] = 'Frauen, >= 65'
     return df
 
-# @st.cache(ttl = 3600)
+
+@st.cache(ttl = 3600)
 def complete_age_column(df: pd.DataFrame, age_col_string:str, age_col_numeric: str):
     """
-    generates a new numeric age column where string values such as 20-40 or > 60 are converted into the minimum 
+    Generates a new numeric age column where string values such as 20-40 or > 60 are converted into the minimum 
     numeric values as follows:
     10-30: 10
     > 60: 61
@@ -186,6 +264,7 @@ def complete_age_column(df: pd.DataFrame, age_col_string:str, age_col_numeric: s
     df[age_col_numeric] = df[age_col_numeric].astype(int)
     return df
 
+
 @st.cache(ttl = 3600)
 def get_calculated_rows(df: pd.DataFrame) -> pd.DataFrame:
     df['n_active'] = df['ncumul_conf'] - df['ncumul_released']
@@ -197,6 +276,7 @@ def get_calculated_rows(df: pd.DataFrame) -> pd.DataFrame:
         frames.append(result)
 
     return pd.concat(frames)
+
 
 @st.cache(ttl = 3600)
 def prepare_ch_data(df_pop: pd.DataFrame, cant_df: pd.DataFrame) -> pd.DataFrame:
@@ -213,6 +293,7 @@ def prepare_ch_data(df_pop: pd.DataFrame, cant_df: pd.DataFrame) -> pd.DataFrame
     ch_df['abbreviation_canton_and_fl'] = 'CH'
     ch_df['Population'] = pop_ch
     return ch_df.reset_index()
+
 
 def filter_data():
     """
@@ -234,6 +315,7 @@ def filter_data():
     
     return data_filtered
 
+
 def rename_columns(df: pd.DataFrame) -> pd.DataFrame:
     """
     renames column names and labelsto make them more userfriendly where they appear on the plot 
@@ -252,6 +334,7 @@ def rename_columns(df: pd.DataFrame) -> pd.DataFrame:
         df.rename(columns = {'variable':marker_col}, inplace=True)
 
     return df
+
 
 def get_titles():
     """
@@ -321,7 +404,9 @@ def show_group_plot():
 
 
 def show_result():
-    """Renders the results on the result panel"""
+    """
+    Renders the results on the result panel.
+    """
 
     global data
     global y_max
@@ -339,10 +424,14 @@ def show_result():
         in [Python](https://www.python.org/) entwickelt. Als Frameworks wurden [Streamlit](https://streamlit.io/) \
         und [Altair](https://altair-viz.github.io/) eingesetzt. Der Quellcode ist auf [github](https://github.com/lcalmbach/covex) publiziert"""
         st.sidebar.info(text)
-    
-    def show_current_numbers():
-        _df = read_values_bs()
+
+    def show_current_numbers():   
+        _df, _most_recent_date = read_values_bs()
+        st.markdown(f'### Aktuelle COVID-19 Fallzahlen in Basel-Stadt ({_most_recent_date.strftime("%d.%m.%Y")})')
+        st.markdown(get_values_bs_comment(_df, _most_recent_date),unsafe_allow_html = True)
         st.dataframe(_df)
+        st.markdown(get_incidence_comment(),unsafe_allow_html = True)
+        
 
     def show_metadata():
         text=open(r"fields.md", encoding="utf-8").read()
@@ -358,7 +447,6 @@ def show_result():
             df = df[['Kanton','date','variable','value']]
         else:
             df = df[['Kanton','date','variable','value']]#.copy(deep=True)
-    
     if plot_type == 'inf':
         show_info()
     elif plot_type == 'situation':
@@ -641,6 +729,7 @@ def show_time_series(data, plot_title: str, ax_title: str, marker_col: str, valu
     chart = line.properties(title=plot_title, width = plot_width, height = plot_height)
     st.altair_chart(chart)
     # st.table(data)
+
 
 def show_time_series_sterbefaelle(data, plot_title: str, ax_title: str, value_col: str, time_col: str):
     """
