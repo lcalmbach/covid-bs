@@ -422,7 +422,7 @@ def show_result():
         
         text = """Diese Applikation wurde von [Lukas Calmbach](mailto:lcalmbach@gmail.com) \
         in [Python](https://www.python.org/) entwickelt. Als Frameworks wurden [Streamlit](https://streamlit.io/) \
-        und [Altair](https://altair-viz.github.io/) eingesetzt. Der Quellcode ist auf [github](https://github.com/lcalmbach/covex) publiziert"""
+        und [Altair](https://altair-viz.github.io/) eingesetzt. Der Quellcode ist auf [github](https://github.com/lcalmbach/covid-bs) publiziert"""
         st.sidebar.info(text)
 
     def show_current_numbers():   
