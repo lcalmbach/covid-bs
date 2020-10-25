@@ -168,7 +168,7 @@ def read_sterbefaelle_bs() -> pd.DataFrame:
     filename = './100079.csv'
     # if file older than 12 hours then read it again, otherwise use local copy
     if tools.file_age(filepath=filename, time_unit='h') > cn.MAX_FILE_AGE_HOURS:
-        url = cn.VALUES_BS_URL
+        url = cn.STERBEFAELLE_URL
         myfile = requests.get(url)
         open(filename, 'wb').write(myfile.content)
 
