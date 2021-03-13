@@ -18,6 +18,6 @@ Local URL: http://localhost:8501
 Network URL: http://192.168.0.94:8501   
 ```
 
-Open Your Browser to view the app. Any changes you make to the code will be automatically reflected in teh Browser window, if you press the Rerun button from the hamburger menu in the browser window (upper right corner).
+Open Your Browser to view the app. Any changes you make to the code will be automatically reflected in the Browser window, if you press the Rerun button from the hamburger menu in the browser window (upper right corner).
 
 
