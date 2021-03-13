@@ -5,6 +5,7 @@ import altair as alt
 import time
 from datetime import date, datetime, timedelta
 import os
+# from st_aggrid import GridOptionsBuilder, AgGrid, GridUpdateMode, DataReturnMode, JsCode
 
 import tools
 import config as cn
@@ -92,14 +93,12 @@ def read_values_bs() -> pd.DataFrame:
         return df
 
     _df = pd.read_csv(cn.VALUES_BS_URL, sep = ';').sort_values(by='Zeitstempel',ascending=False)
-    _df = _df[['Datum','Zeit','Differenz Fälle mit Wohnsitz BS', 'Differenz Fälle mit Wohnsitz ausserhalb BS', 'Isolierte', 'Kontaktpersonen in Quarantäne'
-        ,'Reiserückkehrer in Quarantäne','In Quarantäne total', 'Fälle mit Wohnsitz BS','Fälle mit Wohnsitz ausserhalb BS','Fälle auf Intensivstation',
+    _df = _df[['Datum','Zeit','Differenz Fälle mit Wohnsitz BS', 'Isolierte', 'Kontaktpersonen in Quarantäne'
+        ,'Reiserückkehrer in Quarantäne','In Quarantäne total', 'Fälle mit Wohnsitz BS','Fälle auf Intensivstation',
         'Genesene', 'Differenz Genesene', 'Verstorbene', 'Differenz Verstorbene']]
     # _df['Datum'] = pd.to_datetime(_df['Datum'])
     _df.rename(columns = {'Differenz Fälle mit Wohnsitz BS':'Fälle mit Wohnsitz BS',
-        'Differenz Fälle mit Wohnsitz ausserhalb BS': 'Fälle mit Wohnsitz ausserhalb BS',
         'Fälle mit Wohnsitz BS': 'Fälle mit Wohnsitz BS kumuliert',
-        'Fälle mit Wohnsitz ausserhalb BS': 'Fälle mit Wohnsitz ausserhalb BS',
         'Verstorbene': 'Verstorbene kumuliert',
         'Differenz Verstorbene': 'Verstorbene',
         'Genesene': 'Genesene kumuliert',
@@ -118,23 +117,30 @@ def read_values_bs() -> pd.DataFrame:
     _df = _df.set_index('Datum')
     _df['7 Tage Inzidenz'] =  (_df['Fälle letzte 7 Tage'] / _pop * 100000).round(1)
     _df['14 Tage Inzidenz'] = (_df['Fälle letzte 14 Tage'] / _pop * 100000).round(1)
+    _df = _df.reset_index()
     _df = _df.head(7)
+    #_df['Datum'] = _df['Datum'].astype('datetime64[ns]')
+    #_df['Datum'] = _df['Datum'].strftime('%Y-%m-%d')
+    _df['Datum'] = _df['Datum'].apply(lambda x: x.strftime('%d.%m.%Y'))
+    
+    _df = _df.set_index('Datum')
     return _df.transpose(), _most_recent_date
 
 @st.cache(ttl = 3600)
 def get_values_bs_comment(df:pd.DataFrame, reporting_date)-> str:
     sentence = {}
+    reporting_date_expression = reporting_date.strftime("%d.%m.%Y") 
     _weekday = cn.WEEK_DIC[reporting_date.weekday()]
-
-    _new = int(df.at['Fälle mit Wohnsitz BS', reporting_date])
-    _cumul =  int(df.at['Fälle mit Wohnsitz BS kumuliert', reporting_date])
-    _cured = int(df.at['Genesene kumuliert', reporting_date])
-    _inc7 = df.at['7 Tage Inzidenz', reporting_date]
-    _inc14 = df.at['14 Tage Inzidenz', reporting_date]
-    _sum7 = int(df.at['Fälle letzte 7 Tage', reporting_date])
-    _sum14 = int(df.at['Fälle letzte 14 Tage', reporting_date])
-    _dead = int(df.at['Verstorbene', reporting_date])
-    _dead_cumul = int(df.at['Verstorbene kumuliert', reporting_date])
+    st.write(df)
+    _new = int(df.at['Fälle mit Wohnsitz BS', reporting_date_expression])
+    _cumul =  int(df.at['Fälle mit Wohnsitz BS kumuliert', reporting_date_expression])
+    _cured = int(df.at['Genesene kumuliert', reporting_date_expression])
+    _inc7 = df.at['7 Tage Inzidenz', reporting_date_expression]
+    _inc14 = df.at['14 Tage Inzidenz', reporting_date_expression]
+    _sum7 = int(df.at['Fälle letzte 7 Tage', reporting_date_expression])
+    _sum14 = int(df.at['Fälle letzte 14 Tage', reporting_date_expression])
+    _dead = int(df.at['Verstorbene', reporting_date_expression])
+    _dead_cumul = int(df.at['Verstorbene kumuliert', reporting_date_expression])
 
     sentence['rising_falling'] = f'Die Zahl der COVID-19 Todesfälle stieg um {_dead} auf insgesamt {_dead_cumul}' if _dead > 0 else f'Die Zahl der COVID-19 Todesfälle blieb konstant bei insgesamt {_dead_cumul}'
 
@@ -152,7 +158,7 @@ def get_incidence_comment()-> str:
     _text = f"""
     <sub>n-Tage Inzidenz = Anzahl Fälle pro 100'000 Einwohner über die letzten n Tage. Je nach Quelle, Stichtag und Definition der Einwohnerzahl 
     kann dieser Wert also leicht schwanken. Die Einwohnerzahl des Kantons ist in der Regel z.B. etwas höher als diejenige des BFS, da sie auch die Wochenaufenthalter beinhaltet. Daraus ergibt sich dann eine geringfügig tiefere Inzidenz.
-    Die Inzidenzen in CovEx wird mit einer Einwohnerzahl von {_pop} gerechnet, gemäss [Demografische Bilanz Nach Kanton](https://www.bfs.admin.ch/bfs/de/home/statistiken/bevoelkerung.assetdetail.14087712.html) des 
+    Die Inzidenzen in CovEx wird mit einer Einwohnerzahl von {_pop} gerechnet, gemäss [Demografische Bilanz nach Kanton](https://www.bfs.admin.ch/bfs/de/home/statistiken/bevoelkerung.assetdetail.14087712.html) des 
     BFS. Dieser Datenbestand wird in CovEx-bs für alle pro Kopf Quoten verwendet.</sub>
     """
     return _text
@@ -307,8 +313,7 @@ def filter_data():
         data_filtered = data[data['variable'].isin(list(variables))]
 
     if plot_type == 'bc':
-        comp_date = datetime.strptime(selected_date, '%d/%m/%Y').strftime('%Y-%m-%d')
-        data_filtered = data_filtered[data_filtered['date'] == comp_date]
+        data_filtered = data_filtered[data_filtered['date'] == str(selected_date)]
         data_filtered["value"].fillna(0)
         # data_filtered = data_filtered.sort_values(by='value', ascending=True)
     
@@ -357,7 +362,7 @@ def get_titles():
 
     value_col = 'value'
     if plot_type == 'bc':
-        plot_title += ', Datum: ' + selected_date
+        plot_title += f', Datum: {selected_date}'
         
     return plot_title, ax_title, marker_col, value_col
 
@@ -419,16 +424,16 @@ def show_result():
         text = open(r"info.md", encoding="utf-8").read()
         st.markdown(text.format(min_date.strftime('%d/%m/%Y'),max_date.strftime('%d/%m/%Y')), unsafe_allow_html=True)
         
-        text = """Diese Applikation wurde von [Lukas Calmbach](mailto:lcalmbach@gmail.com) \
-        in [Python](https://www.python.org/) entwickelt. Als Frameworks wurden [Streamlit](https://streamlit.io/) \
+        text = """Diese Applikation wurde von [Lukas Calmbach](mailto:lcalmbach@gmail.com) 
+        in [Python](https://www.python.org/) entwickelt. Als Frameworks wurden [Streamlit](https://streamlit.io/) 
         und [Altair](https://altair-viz.github.io/) eingesetzt. Der Quellcode ist auf [github](https://github.com/lcalmbach/covid-bs) publiziert"""
         st.sidebar.info(text)
 
     def show_current_numbers():   
         _df, _most_recent_date = read_values_bs()
         st.markdown(f'### Aktuelle COVID-19 Fallzahlen in Basel-Stadt ({_most_recent_date.strftime("%d.%m.%Y")})')
-        st.markdown(get_values_bs_comment(_df, _most_recent_date),unsafe_allow_html = True)
-        st.dataframe(_df)
+        st.markdown(get_values_bs_comment(_df, _most_recent_date), unsafe_allow_html = True)
+        st.write(_df)
         st.markdown(get_incidence_comment(),unsafe_allow_html=True)
         
 
@@ -480,11 +485,9 @@ def show_result():
         df = bs_data[bs_data['n_deceased'].astype(int) > 0].groupby(['Date', 'Gender']).sum().reset_index()
         df['date_gender_agg'] = df['Date'].astype(str) + df['Gender']
         marker_col = 'Date'
-        y_max = 6
         chart = get_bar_chart(df, plot_title, ax_title, marker_col, value_col, 'Gender')
         st.altair_chart(chart)
         y_max = 0
-        show_time_series(df, plot_title, ax_title, 'Gender', 'n_deceased', 'Date')
         
         ax_title = 'Verstorbene kumuliert'
         df = bs_data[bs_data['n_deceased'].astype(int) > 0].groupby(['Gender','Date']).sum().groupby(level=0).cumsum().reset_index()
@@ -499,7 +502,7 @@ def show_result():
         value_col = 'Fälle'
         ax_title = 'Verstorbene'
         plot_title = 'Anteil Covid-Fälle an Anzahl der Verstorbenen in BS'
-        chart = get_bar_chart(df_sterbefaelle, plot_title, ax_title, marker_col, value_col, group_col)
+        chart = get_bar_chart(df_sterbefaelle, plot_title, ax_title, marker_col, value_col, group_col, 1)
         st.altair_chart(chart)
         text = """Der Vergleich kann nur bis zum Datum heute - 15 Tagen durchgeführt werden, da die Zahl der Verstorbenen 
         in der Regel mit einigen Tagen Verspätung eintreffen und in den vergangenen 2 Wochen ein Teil 
@@ -515,7 +518,7 @@ def show_result():
         text = """Im März 2020 - mit den meisten Covid-Todesfällen in Basel-Stadt - zeichnet sich zwar deutlich eine Spitze ab, ähnlich hohe wöchentliche 
         Sterberaten traten aber auch im Feb. 2017, Januar 2009 und März 2004, sowie recht häufig vor dem Jahr 2004 auf. Die Wohnbevölkerung von Basel-Stadt lag
         im 1990 bei 199,411 Einwohner und war somit tiefer als Ende 2019, sodass die tendenziell höhere Sterberate vor 2004 nicht mit einer 
-        höheren Einwohnerzahl erklärt werden kann.<br>Die rote Linie glättet die wöchentlichen Daten in einem Zeitfenster von 30 Tagen (moving average) und erlaubt es,
+        höheren Einwohnerzahl erklärt werden kann.<br>Die rote Linie glättet die wöchentlichen Daten in einem Zeitfenster von 7 Tagen (moving average) und erlaubt es,
         Trends besser zu erkennen."""
         st.markdown(text, unsafe_allow_html=True)
         
@@ -524,7 +527,7 @@ def show_result():
         
         text = """Die Box-Plot zeigt die statistische Verteilung der Sterberaten für jeden Monat seit 2005. Ein Box-Plot vermittelt einen Eindruck darüber, 
         in welchem Bereich die Daten liegen und wie sie sich über diesen Bereich verteilen. Der weisse Strich in der Mitte repräsentiert den Median,
-        der Kasten das Intervall zwischen dem 25 und 75% Perzentil und die vertiklen Striche das 1,5-Fache des Interquartilsabstands. Werte, die über 
+        der Kasten das Intervall zwischen dem 25 und 75% Perzentil und die vertikalen Striche das 1,5-Fache des Interquartilsabstands. Werte, die über 
         oder unter den vertikalen Strichen (Whisker) zu liegen kommen, werden als Ausreisser bezeichnet: Sie heben sich deutlich von der Grundverteilung ab und 
         deuten auf eine Anomalie hin, in obiger Grafik auf eine Übersterblichkeit.<br> 
         Gemäss dieser graphischen Darstellung liegt die Sterberate im März 2020 mit 221 Gestorben zwar über den Normalwerten für den Monat (75% Perzentil: 209) ist aber 
@@ -534,7 +537,7 @@ def show_result():
         st.markdown(text, unsafe_allow_html=True)
         show_data = st.checkbox('Tabellen-Werte anzeigen?')
         if show_data:
-            st.write(df_sterbefaelle_month)
+            AgGrid(df_sterbefaelle_month)
 
 
 def generate_animation(df: pd.DataFrame):
@@ -600,7 +603,8 @@ def show_side_bar(version: str):
         variables[0] = st.sidebar.selectbox(label='Wähle Variable', options = list(cn.variable_dic.keys()),
             format_func=lambda x: cn.variable_dic[x], index = 1)
         # go back 7 days to be sure that there is any data
-        selected_date = st.sidebar.selectbox(label='Wähle Datum', options = cn.DATE_LIST, index = len(cn.DATE_LIST)-7) 
+        one_week_ago = datetime.now() - timedelta(days=7)
+        selected_date = st.sidebar.date_input(label='Wähle Datum', value=one_week_ago) 
     elif plot_type == 'ani':
         cantons = cn.CANTON_LIST
         variables[0] = st.sidebar.selectbox(label='Wähle Variable', options = list(cn.variable_dic.keys()),
@@ -631,7 +635,7 @@ def show_box_plot(data: pd.DataFrame, plot_title: str, ax_title: str, marker_col
     st.altair_chart(chart)
 
 
-def get_bar_chart(data: pd.DataFrame, plot_title: str, ax_title: str, marker_col: str, value_col: str, color_col:str):
+def get_bar_chart(data: pd.DataFrame, plot_title: str, ax_title: str, marker_col: str, value_col: str, color_col:str, bar_width: int = 0):
     """Returns a altair barchart object"""
 
     tooltips = [value_col, marker_col]
@@ -661,15 +665,26 @@ def get_bar_chart(data: pd.DataFrame, plot_title: str, ax_title: str, marker_col
     else:
         clr = alt.Color(color_col,
                 scale=alt.Scale(scheme=cn.COLOR_SCHEMA))
-    bar = alt.Chart(data).mark_bar().encode(
+    if bar_width > 0:
+        bar = alt.Chart(data).mark_bar(width = bar_width).encode(
+            x=xax,
+            y=alt.Y(f'{value_col}:Q',
+                title=ax_title, 
+                scale=scy
+                ),
+            color = clr,
+            order=alt.Order(color_col, sort='ascending'),
+            tooltip=tooltips)
+    else:
+        bar = alt.Chart(data).mark_bar().encode(
         x=xax,
         y=alt.Y(f'{value_col}:Q',
             title=ax_title, 
             scale=scy
             ),
         color = clr,
-        order=alt.Order(value_col, sort='ascending'),
-        tooltip=tooltips)
+        order=alt.Order(color_col, sort='ascending'),
+        tooltip=tooltips)    
 
     # not sure why the mean is sometime lower than the minimum bar mean
     # rule = alt.Chart(data).mark_rule(color='red').encode(
@@ -709,7 +724,7 @@ def show_time_series(data, plot_title: str, ax_title: str, marker_col: str, valu
     
     #all_dates = data['date'].unique().tolist()
     #all_dates.format(formatter=lambda x: x.strftime('%Y-%m-%d'))
-    line = alt.Chart(data).mark_line(point=True, clip=True).encode(
+    line = alt.Chart(data).mark_line(point=False, clip=True).encode(
         x=alt.X(f'{time_col}:T',
                 axis=alt.Axis(title=x_lab, labelAngle = 30, format="%d.%m.%y")),  # https://github.com/d3/d3-time-format#locale_format
         y=alt.Y(f'{value_col}:Q',
@@ -752,7 +767,7 @@ def show_time_series_sterbefaelle(data, plot_title: str, ax_title: str, value_co
     
     #all_dates = data['date'].unique().tolist()
     #all_dates.format(formatter=lambda x: x.strftime('%Y-%m-%d'))
-    window = 15
+    window = 7
     mov_avg = alt.Chart(data).mark_line(
         color='red',
         size=2
@@ -761,7 +776,10 @@ def show_time_series_sterbefaelle(data, plot_title: str, ax_title: str, value_co
         frame=[-window, window]
     ).encode(
         x=f'{time_col}:T',
-        y='rolling_mean:Q'
+        y='rolling_mean:Q',
+        tooltip=[alt.Tooltip(f'{time_col}:T', format='%d.%m.%y'),
+              alt.Tooltip(f'{value_col}:Q', format='.1f'),
+              ],
     )
 
     line = alt.Chart(data).mark_line(point=False, clip=True).encode(
